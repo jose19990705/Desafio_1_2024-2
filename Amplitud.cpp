@@ -1,9 +1,8 @@
 float Amplitud(int* muestras, int numeroMuestras) {
-  int valorMax = 0;
-  int valorMin = 1023;
   /*
   calcula la amplitud de una señal a partir de un arreglo de muestras.
-  Encuentra el valor máximo y el valor mínimo en las muestras,
+  Encuentra el valor máximo y el valor mínimo en las muestras, 
+  siendo valorMax y valorMin variables globales 
   se calcula como la diferencia entre el valor máximo y el valor mínimo. 
   Esto da el rango total de la señal.
   ajustando el resultado dividiéndolo por 100.0.
