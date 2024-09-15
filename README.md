@@ -1,1 +1,1 @@
-Repositorio encargado de soportar la evolución y desarrollo del desafio de informatica 2.
+Repositorio encargado de la solución del desafio 1 informática 2.
