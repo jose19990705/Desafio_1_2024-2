@@ -1,0 +1,42 @@
+Análisis y Solución del Problema
+
+1. Implementación Física del Sistema:
+El primer paso consistió en la implementación física del sistema, que se desarrolló en el entorno virtual de Tinkercad, usando un Arduino y una pantalla LCD para mostrar los resultados de la señal procesada.
+
+2. Descomposición del Problema:
+El problema global fue descompuesto en subproblemas más sencillos para facilitar su solución:
+    a) Lectura de una señal analógica para obtener la amplitud.
+    b) Cálculo de la frecuencia de la señal analógica.
+    c) Cálculo del coeficiente de correlación entre señales base (senoidal, cuadrada, triangular) y la señal de entrada. Para el correcto funcionamiento, se creó una función secundaria de muestreo de la señal de entrada.
+
+3. Funciones Implementadas:
+Las funciones desarrolladas para resolver los subproblemas fueron las siguientes:
+    a) Función para determinar la amplitud de la señal:
+       Esta función toma los valores máximo y mínimo registrados durante la captura de la señal para calcular la amplitud.
+       Se usa el valor pico a pico (diferencia entre el máximo y el mínimo), que luego se divide entre dos para obtener la amplitud.
+
+    b) Función para calcular la frecuencia de la señal:
+       Se implementó un algoritmo que calcula la frecuencia midiendo el tiempo entre dos cruces consecutivos de la señal a través de un umbral. El umbral se define como el promedio entre el valor máximo y el valor mínimo de la señal. Usando la función millis(), se mide el tiempo entre cruces consecutivos y con ello se obtiene la frecuencia.
+
+    c) Función para calcular el coeficiente de correlación:
+       Esta función mide la similitud entre la señal de entrada y las señales base (senoidal, cuadrada y triangular) generadas previamente. Esto permite determinar el tipo de señal que se ingresó al sistema.
+
+4. Montaje del Hardware Virtual en Tinkercad:
+Se utilizó la plataforma Tinkercad para el montaje del sistema, incluyendo el Arduino y el generador de señales.
+
+5. Configuración del LCD:
+Se configuró la pantalla LCD utilizando la librería LiquidCrystal.h. Esta pantalla permite mostrar visualmente los resultados del análisis de la señal.
+
+6. Cálculo de la Amplitud:
+Para calcular la amplitud de la señal:
+    - Se determinó el valor pico a pico rotando el valor mínimo al máximo.
+    - La amplitud se calculó dividiendo el valor pico a pico entre dos.
+    Este método es estándar para obtener la amplitud de una señal.
+
+7. Cálculo de la Frecuencia:
+El cálculo de la frecuencia se basa en medir el tiempo entre dos cruces consecutivos de la señal a través del umbral, calculado como el promedio entre el valor máximo y mínimo. Usando millis(), se obtiene la diferencia de tiempo, y la frecuencia se determina en función de este intervalo. Los valores de umbral, máximo y mínimo se actualizan cada segundo para reflejar cambios en la señal de entrada.
+
+8. Muestreo de la Señal:
+El Teorema de Nyquist fue clave para asegurar que la frecuencia de muestreo fuera adecuada para evitar aliasing. La frecuencia de muestreo fue ajustada para ser al menos el doble de la frecuencia más alta presente en la señal, permitiendo una correcta reconstrucción de la misma.
+El sistema adapta dinámicamente la cantidad de muestras en función de la frecuencia detectada, asegurando la calidad del muestreo. Para gestionar el almacenamiento de las muestras, se utilizó "new" para asignar dinámicamente la memoria según las necesidades de la señal detectada.
+
