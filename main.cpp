@@ -1,69 +1,75 @@
 #include <LiquidCrystal.h>
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);  // Pines para el LCD
+// Inicializa la librería LiquidCrystal con los pines que controlan el LCD
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
-const int pinEntrada = A5;  // Pin de entrada para la señal
-const int numCrucesParaFrecuencia = 5; // Número de cruces por el valor máximo para calcular la frecuencia
-bool recopilacion = false;
+const int pinEntrada = A5;  // Pin analógico para la lectura de la señal
+const int numCrucesParaFrecuencia = 5; // Número de cruces de umbral para calcular la frecuencia
+bool recopilacion = false;  // Variable para iniciar o detener la toma de datos
 
 void setup() {
-    Serial.begin(9600);
-    lcd.begin(16, 2);  // Inicializa el LCD con 16 columnas y 2 filas
-    pinMode(6, INPUT);
-    pinMode(7, INPUT);
+    Serial.begin(9600); // Inicia la comunicación serial
+    lcd.begin(16, 2);   // Inicializa el LCD con 16 columnas y 2 filas
+    pinMode(6, INPUT);  // Configura el pin 6 como entrada (control para empezar a recopilar datos)
+    pinMode(7, INPUT);  // Configura el pin 7 como entrada (control para detener la recopilación)
 }
 
+// Función para medir la amplitud de la señal
 float Amplitud() {
-    int maxVal = 0;
-    int minVal = 1023;
+    int maxVal = 0;    // Valor máximo de la señal
+    int minVal = 1023; // Valor mínimo de la señal
 
-    for (int i = 0; i < 100; i++) {  // Toma 100 muestras
-        int lectura = analogRead(pinEntrada);
-        if (lectura > maxVal) maxVal = lectura;
-        if (lectura < minVal) minVal = lectura;
+    // Realiza 100 lecturas de la señal analógica
+    for (int i = 0; i < 100; i++) {
+        int lectura = analogRead(pinEntrada);  // Lee el valor de la señal
+        if (lectura > maxVal) maxVal = lectura;  // Actualiza el valor máximo
+        if (lectura < minVal) minVal = lectura;  // Actualiza el valor mínimo
         delay(10); // Espera 10 ms entre lecturas
     }
 
-    return (maxVal - minVal) * (5.0 / 1023.0); // Convierte a voltios
+    // Devuelve la amplitud de la señal convertida a voltios
+    return (maxVal - minVal) * (5.0 / 1023.0);
 }
 
-// Funciones para la detección y reconocimiento de la señal
-// Función que genera la base para seno
+// Función que genera una señal base senoidal
 float *base_seno(float frecuencia, int muestras) {
-    float *b_seno = new float[muestras];
-    float intervalo = (1.0 / frecuencia) / (muestras - 1);
+    float *b_seno = new float[muestras];  // Reserva memoria para la señal senoidal
+    float intervalo = (1.0 / frecuencia) / (muestras - 1);  // Intervalo de tiempo entre muestras
 
+    // Calcula los valores de la señal senoidal
     for (int i = 0; i < muestras; i++) {
-        float t = i * intervalo;
-        float angulo = 2 * 3.14 * frecuencia * t - (3.14 / 2);  // Ajusta el ángulo para empezar en el máximo
-        *(b_seno + i) = sin(angulo); // Calcula el seno que servirá para comparar con la entrada
+        float t = i * intervalo;  // Tiempo en cada muestra
+        float angulo = 2 * 3.14 * frecuencia * t - (3.14 / 2);  // Ajusta el ángulo para que empiece en el máximo
+        *(b_seno + i) = sin(angulo);  // Asigna el valor del seno a cada muestra
     }
 
-    return b_seno;
+    return b_seno;  // Devuelve la señal senoidal
 }
 
 // Función que genera una señal cuadrada
 float *base_cuadrada(float frecuencia, int muestras) {
-    float *b_cuadrada = new float[muestras];
-    int mitad = muestras / 2;  // La mitad de las muestras serán altas, y la otra mitad bajas
+    float *b_cuadrada = new float[muestras];  // Reserva memoria para la señal cuadrada
+    int mitad = muestras / 2;  // La mitad de las muestras serán altas, la otra mitad bajas
 
+    // Asigna los valores de la señal cuadrada
     for (int i = 0; i < muestras; i++) {
         if (i < mitad) {
             *(b_cuadrada + i) = 1;  // Primer mitad del periodo (señal alta)
         } else {
-            *(b_cuadrada + i) = -1; // Segunda mitad del periodo (señal baja)
+            *(b_cuadrada + i) = -1;  // Segunda mitad del periodo (señal baja)
         }
     }
 
-    return b_cuadrada;
+    return b_cuadrada;  // Devuelve la señal cuadrada
 }
 
 // Función que genera una señal triangular
 float *base_triangular(float frecuencia, int muestras) {
-    float *b_triangular = new float[muestras];
-    int mitad = muestras / 2;
-    float incremento = 2.0 / mitad;  // Incremento para subir desde -1 hasta 1
+    float *b_triangular = new float[muestras];  // Reserva memoria para la señal triangular
+    int mitad = muestras / 2;  // La mitad de las muestras será subida y la otra mitad bajada
+    float incremento = 2.0 / mitad;  // Incremento para subir de -1 a 1
 
+    // Asigna los valores de la señal triangular
     for (int i = 0; i < muestras; i++) {
         if (i < mitad) {
             *(b_triangular + i) = -1 + i * incremento;  // Subida en la primera mitad
@@ -72,25 +78,25 @@ float *base_triangular(float frecuencia, int muestras) {
         }
     }
 
-    return b_triangular;
+    return b_triangular;  // Devuelve la señal triangular
 }
 
-// Generamos el coeficiente de correlación encargado de encontrar similitud entre señales
+// Función que calcula el coeficiente de correlación entre dos señales
 float coeficiente_correlacion(float* x, float* y, int n) {
     float suma_xy = 0, suma_x2 = 0, suma_y2 = 0;
 
     // Calcular la correlación cruzada y las autocorrelaciones
     for (int i = 0; i < n; i++) {
-        suma_xy += x[i] * y[i];   // Correlación cruzada Rxy(0)
-        suma_x2 += x[i] * x[i];   // Autocorrelación Rxx(0)
-        suma_y2 += y[i] * y[i];   // Autocorrelación Ryy(0)
+        suma_xy += x[i] * y[i];   // Producto cruzado de ambas señales
+        suma_x2 += x[i] * x[i];   // Autocorrelación de la primera señal
+        suma_y2 += y[i] * y[i];   // Autocorrelación de la segunda señal
     }
 
-    // Coeficiente de correlación normalizado
+    // Devuelve el coeficiente de correlación normalizado
     return suma_xy / (sqrt(suma_x2) * sqrt(suma_y2));
 }
 
-// Función encargada de la frecuencia del sistema
+// Función que mide la frecuencia de la señal
 float Frecuencia() {
     int valorMax = 0;
     int valorMin = 1023;
@@ -100,14 +106,14 @@ float Frecuencia() {
     float frecuencia = 0.0;
     int umbral = 0;
     unsigned long tiempoActual = millis();
-    int contadorCruces = 0; // Contador para registrar el número de cruces por el umbral
+    int contadorCruces = 0;
 
-    // Cambia el ciclo de for a un ciclo controlado por tiempo (2 segundos, por ejemplo)
+    // Muestrea por 2 segundos
     unsigned long tiempoInicio = millis();
-    while (millis() - tiempoInicio < 2000) { // Muestrea por 2 segundos
+    while (millis() - tiempoInicio < 2000) {
         int valorActual = analogRead(pinEntrada);
 
-        // Actualización de valor máximo y mínimo
+        // Actualiza los valores máximos y mínimos
         if (valorActual > valorMax) {
             valorMax = valorActual;
         }
@@ -115,104 +121,101 @@ float Frecuencia() {
             valorMin = valorActual;
         }
 
-        umbral = (valorMax + valorMin) / 2;
+        umbral = (valorMax + valorMin) / 2;  // Calcula el umbral para detectar cruces
 
-        // Actualizar el tiempo en cada iteración
-        tiempoActual = millis();
-
-        // Detectar el cruce de umbral
+        // Detecta el cruce del umbral
         if (valorActual > umbral && valorPrevio <= umbral) {
             if (prevTime > 0) {
-                // Contabilizar los cruces por el umbral
-                contadorCruces++;
+                contadorCruces++;  // Incrementa el contador de cruces
             }
             prevTime = tiempoActual;
         }
 
         valorPrevio = valorActual;
 
-        // Restablecer valorMax y valorMin cada segundo
+        // Restablece los valores máximos y mínimos cada segundo
         if (tiempoActual - ultimoTiempoReset > 1000) {
             valorMax = 0;
             valorMin = 1023;
             ultimoTiempoReset = tiempoActual;
         }
 
-        delay(1); // Reduce el retardo para mayor precisión en señales de baja frecuencia
+        delay(1);  // Retardo para aumentar la precisión
     }
 
-    // Calcular frecuencia según el número de cruces por el umbral detectados en 2 segundos
+    // Calcula la frecuencia en base a los cruces de umbral detectados
     if (contadorCruces > 0) {
-        frecuencia = contadorCruces / 2.0; // Divide entre 2 para obtener ciclos completos
+        frecuencia = contadorCruces / 2.0;  // Cada 2 cruces es un ciclo completo
     } else {
-        frecuencia = 0.0; // Si no hay cruces, la frecuencia es 0
+        frecuencia = 0.0;  // Si no hay cruces, la frecuencia es 0
     }
 
-    return frecuencia;
+    return frecuencia;  // Devuelve la frecuencia calculada
 }
 
-
-// Captura las muestras de la señal
+// Función que toma las muestras de la señal
 void Muestras(float frecuencia, int numeroMuestras, float* muestras) {
-    int intervalo = 1000000 / (2 * frecuencia);  // Intervalo en microsegundos para cumplir con Nyquist
+    int intervalo = 1000000 / (2 * frecuencia);  // Calcula el intervalo entre muestras para cumplir con Nyquist
     float maxSignal = 0.0;
     float currentSignal = 0.0;
     float valorPrev = 0.0;
 
-    // Espera hasta que se detecte un valor máximo de la señal
+    // Espera a detectar un valor máximo de la señal
     while (true) {
-        currentSignal = analogRead(A5) * (5.0 / 1023.0);  // Lee la señal actual
+        currentSignal = analogRead(A5) * (5.0 / 1023.0);  // Lee la señal y la convierte a voltios
         if (currentSignal > maxSignal) {
-            maxSignal = currentSignal;  // Actualiza el valor máximo
+            maxSignal = currentSignal;
         }
 
         valorPrev = currentSignal;
-        // Inicia la toma de muestras cuando la señal comience a disminuir después del valor máximo
-        if (currentSignal < maxSignal * 0.99) {  // Tolerancia para evitar variaciones pequeñas
+
+        // Inicia la toma de muestras cuando la señal empieza a disminuir después del máximo
+        if (currentSignal < maxSignal * 0.99) {
             break;
         }
     }
 
-    // Toma las muestras una vez que se ha alcanzado el máximo
+    // Toma las muestras de la señal
     for (int i = 0; i < numeroMuestras; i++) {
         muestras[i] = analogRead(A5) * (5.0 / 1023.0);  // Captura la señal y la convierte a voltios
-        delayMicroseconds(intervalo);  // Espera el tiempo calculado en microsegundos
+        delayMicroseconds(intervalo);  // Espera el intervalo calculado en microsegundos
     }
 }
 
+// Función principal
 void loop() {
-    if (digitalRead(6) == HIGH) {
+    if (digitalRead(6) == HIGH) {  // Inicia la recopilación de datos si el botón en el pin 6 está activado
         recopilacion = true;
     }
-    if (digitalRead(7) == HIGH) {
+    if (digitalRead(7) == HIGH) {  // Detiene la recopilación si el botón en el pin 7 está activado
         recopilacion = false;
     }
 
-    if (recopilacion) {
-        float frecuencia = Frecuencia();
-        float amplitud = Amplitud();
-        int numeroMuestras = (1000.0 / frecuencia) / (1000.0 / (2 * frecuencia + 200));
+    if (recopilacion) {  // Si está activada la recopilación de datos
+        float frecuencia = Frecuencia();  // Calcula la frecuencia de la señal
+        float amplitud = Amplitud();      // Calcula la amplitud de la señal
+        int numeroMuestras = (1000.0 / frecuencia) / (1000.0 / (2 * frecuencia + 200));  // Calcula el número de muestras necesarias
 
+        float* muestras = new float[numeroMuestras];  // Reserva memoria para las muestras
+        Muestras(frecuencia, numeroMuestras, muestras);  // Captura las muestras de la señal
 
-        float* muestras = new float[numeroMuestras];
-
-        Muestras(frecuencia, numeroMuestras, muestras);
-
-
+        // Genera las señales base (senoidal, cuadrada, triangular)
         float* base_seno_ = base_seno(frecuencia, numeroMuestras);
         float* base_cuadrada_ = base_cuadrada(frecuencia, numeroMuestras);
         float* base_triangular_ = base_triangular(frecuencia, numeroMuestras);
 
+        // Calcula los coeficientes de correlación con las señales base
         float correlacion_seno = coeficiente_correlacion(base_seno_, muestras, numeroMuestras);
         float correlacion_cuadrada = coeficiente_correlacion(base_cuadrada_, muestras, numeroMuestras);
         float correlacion_triangular = coeficiente_correlacion(base_triangular_, muestras, numeroMuestras);
 
+        // Libera la memoria utilizada
         delete[] base_seno_;
         delete[] base_cuadrada_;
         delete[] base_triangular_;
         delete[] muestras;
 
-        // Mostrar en el LCD
+        // Mostrar los resultados en el LCD
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Frecuencia: ");
@@ -221,28 +224,24 @@ void loop() {
         lcd.print("Amplitud: ");
         lcd.print(amplitud);
 
-        // Determinar el tipo de señal
-
-        for(int j=0;j<1000;j++){
-            if (correlacion_seno > correlacion_cuadrada && correlacion_seno > correlacion_triangular &&correlacion_seno>0) {
-                Serial.println("Senoidal");
-                //recopilacion=false;
+        // Determina el tipo de señal basado en el coeficiente de correlación
+        for(int j = 0; j < 1000; j++) {
+            if (correlacion_seno > correlacion_cuadrada && correlacion_seno > correlacion_triangular && correlacion_seno > 0) {
+                Serial.println("Senoidal");  // Si la correlación con la señal senoidal es mayor
                 break;
-            } else if (correlacion_cuadrada > correlacion_seno && correlacion_cuadrada > correlacion_triangular && correlacion_cuadrada>0) {
-                Serial.println("Cuadrada");
-                //recopilacion=false;
+            } else if (correlacion_cuadrada > correlacion_seno && correlacion_cuadrada > correlacion_triangular && correlacion_cuadrada > 0) {
+                Serial.println("Cuadrada");  // Si la correlación con la señal cuadrada es mayor
                 break;
-            } else if(correlacion_triangular > correlacion_seno && correlacion_triangular > correlacion_cuadrada && correlacion_triangular>0){
-                Serial.println("Triangular");
-                //recopilacion=false;
+            } else if (correlacion_triangular > correlacion_seno && correlacion_triangular > correlacion_cuadrada && correlacion_triangular > 0) {
+                Serial.println("Triangular");  // Si la correlación con la señal triangular es mayor
                 break;
             }
         }
-        if(recopilacion==true){
-            Serial.print("no detectada");
 
+        if (recopilacion == true) {
+            Serial.print("no detectada");  // Si no se detecta ninguna señal
         }
 
-        delay(2000); // Muestra los datos durante 2 segundos
+        delay(2000);  // Muestra los datos durante 2 segundos antes de tomar nuevos
     }
 }
