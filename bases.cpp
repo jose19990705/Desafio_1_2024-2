@@ -1,4 +1,7 @@
-   //Con esta función, generamos la base para seno
+#ifndef BASES_H
+#define BASES_H
+
+//Con esta función, generamos la base para seno
 float *base_seno(float frecuencia, int muestras) {
     float b_seno = new float[muestras];
     float intervalo = (1.0 / frecuencia) / (muestras - 1);
