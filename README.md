@@ -1,1 +1,0 @@
-Repositorio encargado de la solución del desafio 1 informática 2.
